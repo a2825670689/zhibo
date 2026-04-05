@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>直播.live</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+    :root {
+      --bg-deep: #05080f;
+      --bg-card: rgba(10, 15, 25, 0.92);
+      --neon-cyan: #00fff2;
+      --neon-magenta: #ff00aa;
+      --neon-gold: #ffd700;
+      --text: #e8e8f0;
+      --text-muted: #6a6a8a;
+      --border: rgba(0,255,242,0.15);
+      --glow-cyan: 0 0 30px rgba(0,255,242,0.4);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { font-size: 16px; }
+    body { font-family: 'Noto Sans SC', sans-serif; background: var(--bg-deep); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+    .bg-layer { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse 80% 50% at 20% 100%, rgba(0,255,242,0.08) 0%, transparent 50%), radial-gradient(ellipse 60% 40% at 85% 10%, rgba(255,0,170,0.06) 0%, transparent 50%); }
+    .bg-grid { position: fixed; inset: 0; z-index: 0; pointer-events: none; background-image: linear-gradient(rgba(0,255,242,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,242,0.03) 1px, transparent 1px); background-size: 60px 60px; animation: grid-pulse 8s ease-in-out infinite; }
+    @keyframes grid-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+    .view { display: none; position: relative; z-index: 1; min-height: 100vh; animation: view-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+    .view.active { display: flex; flex-direction: column; }
+    @keyframes view-enter { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .glass { background: var(--bg-card); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 20px; }
+    .btn { padding: 14px 28px; border: none; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+    .btn-primary { background: linear-gradient(135deg, var(--neon-cyan), #00ccaa); color: var(--bg-deep); box-shadow: var(--glow-cyan); }
+    .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 0 50px rgba(0,255,242,0.6); }
+    .btn-outline { background: transparent; border: 2px solid var(--neon-cyan); color: var(--neon-cyan); }
+    .btn-outline:hover { background: rgba(0,255,242,0.1); box-shadow: var(--glow-cyan); }
+    .btn-sm { padding: 8px 16px; font-size: 13px; border-radius: 8px; }
+    .btn-success { background: #00dd77; color: #000; }
+    .btn-danger { background: var(--neon-magenta); color: #fff; }
+    .input-group { margin-bottom: 20px; }
+    .input-group label { display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+    .input { width: 100%; padding: 16px 18px; background: rgba(0,0,0,0.5); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-size: 16px; font-family: inherit; transition: all 0.2s; }
+    .input:focus { outline: none; border-color: var(--neon-cyan); box-shadow: 0 0 0 3px rgba(0,255,242,0.1); }
+    .input::placeholder { color: var(--text-muted); }
+    #login-view { justify-content: center; align-items: center; padding: 20px; }
+    .login-container { width: 100%; max-width: 400px; text-align: center; }
+    .logo { font-family: 'Orbitron', sans-serif; font-size: 48px; font-weight: 900; letter-spacing: 6px; background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-magenta) 50%, var(--neon-gold) 100%); background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: logo-shimmer 3s ease infinite; margin-bottom: 4px; cursor: pointer; user-select: none; }
+    @keyframes logo-shimmer { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+    .logo-sub { font-size: 12px; color: var(--text-muted); letter-spacing: 8px; text-transform: uppercase; margin-bottom: 40px; }
+    .login-card { padding: 36px; }
+    .login-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .login-card p { color: var(--text-muted); font-size: 14px; margin-bottom: 28px; }
+    .divider { display: flex; align-items: center; margin: 28px 0; color: var(--text-muted); font-size: 12px; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); }
+    .divider span { padding: 0 16px; }
+    .error-msg { color: var(--neon-magenta); font-size: 13px; margin-top: 16px; min-height: 20px; }
+    #verify-view, #waiting-view { justify-content: center; align-items: center; padding: 20px; }
+    .verify-card { padding: 48px 40px; text-align: center; max-width: 380px; }
+    .verify-icon { width: 80px; height: 80px; margin: 0 auto 24px; border-radius: 50%; background: linear-gradient(135deg, rgba(0,255,242,0.15), rgba(0,221,119,0.15)); border: 2px solid var(--neon-cyan); display: flex; align-items: center; justify-content: center; font-size: 36px; color: var(--neon-cyan); animation: icon-pulse 2s ease-in-out infinite; }
+    @keyframes icon-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    .spinner { width: 56px; height: 56px; margin: 0 auto 24px; border: 3px solid var(--border); border-top-color: var(--neon-cyan); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #stream-view { height: 100vh; height: 100dvh; }
+    .stream-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: rgba(0,0,0,0.95); border-bottom: 1px solid var(--border); position: relative; z-index: 100; }
+    .stream-logo { font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 700; color: var(--neon-cyan); letter-spacing: 3px; }
+    .stream-status { display: flex; align-items: center; gap: 16px; }
+    .live-badge { display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: rgba(255,50,50,0.15); border: 1px solid rgba(255,50,50,0.4); border-radius: 6px; font-size: 12px; font-weight: 700; color: #ff5555; letter-spacing: 1px; }
+    .live-dot { width: 8px; height: 8px; background: #ff5555; border-radius: 50%; animation: live-pulse 1.2s ease-in-out infinite; }
+    @keyframes live-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
+    .viewer-count { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text-muted); }
+    .video-area { flex: 1; position: relative; background: #000; display: flex; align-items: center; justify-content: center; }
+    .video-placeholder { width: 100%; height: 100%; background: linear-gradient(135deg, #0a0f1a, #050810); }
+    #danmaku-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .danmaku-item { position: absolute; white-space: nowrap; font-size: 20px; font-weight: 600; text-shadow: 2px 2px 4px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.5); animation: danmaku-fly linear forwards; will-change: transform; }
+    @keyframes danmaku-fly { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
+    .offline-notice { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); z-index: 50; }
+    .offline-notice.show { display: flex; }
+    .offline-notice .icon { font-size: 64px; margin-bottom: 16px; opacity: 0.6; }
+    .offline-notice p { color: var(--text-muted); font-size: 16px; }
+    .muted-toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); padding: 14px 28px; background: rgba(255,0,170,0.15); border: 1px solid var(--neon-magenta); border-radius: 12px; color: var(--neon-magenta); font-size: 14px; font-weight: 600; opacity: 0; transition: opacity 0.3s; z-index: 200; }
+    .muted-toast.show { opacity: 1; }
+    .danmaku-bar { position: fixed; bottom: 0; left: 0; right: 0; padding: 12px 16px; background: rgba(0,0,0,0.98); border-top: 1px solid var(--border); display: flex; gap: 12px; z-index: 100; }
+    .danmaku-bar input { flex: 1; padding: 12px 16px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 15px; }
+    .danmaku-bar input:focus { outline: none; border-color: var(--neon-cyan); }
+    .danmaku-bar input:disabled { opacity: 0.4; cursor: not-allowed; }
+    .danmaku-bar button { padding: 12px 24px; background: var(--neon-cyan); border: none; border-radius: 10px; color: var(--bg-deep); font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+    .danmaku-bar button:hover:not(:disabled) { box-shadow: var(--glow-cyan); }
+    .danmaku-bar button:disabled { opacity: 0.4; cursor: not-allowed; }
+    #admin-view { background: var(--bg-deep); }
+    .admin-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; padding: 16px 24px; background: rgba(0,0,0,0.95); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+    .admin-title { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 700; color: var(--neon-cyan); letter-spacing: 2px; }
+    .admin-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .admin-tab { padding: 10px 18px; background: transparent; border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .admin-tab:hover { border-color: var(--neon-cyan); color: var(--text); }
+    .admin-tab.active { background: rgba(0,255,242,0.1); border-color: var(--neon-cyan); color: var(--neon-cyan); }
+    .admin-body { padding: 24px; max-width: 1400px; margin: 0 auto; }
+    .admin-section { display: none; animation: fadeIn 0.3s ease; }
+    .admin-section.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .stat-card { padding: 24px; text-align: center; }
+    .stat-value { font-family: 'Orbitron', sans-serif; font-size: 42px; font-weight: 900; color: var(--neon-cyan); line-height: 1; }
+    .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; margin-top: 8px; }
+    .control-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+    .control-card { padding: 24px; }
+    .control-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+    .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: rgba(0,0,0,0.4); border-radius: 10px; margin-bottom: 10px; }
+    .toggle-row span { font-size: 14px; }
+    .toggle-switch { position: relative; width: 52px; height: 28px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: rgba(255,255,255,0.1); border-radius: 28px; transition: 0.3s; }
+    .toggle-slider::before { content: ''; position: absolute; width: 22px; height: 22px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
+    .toggle-switch input:checked + .toggle-slider { background: linear-gradient(135deg, var(--neon-cyan), #00ddaa); box-shadow: var(--glow-cyan); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(24px); }
+    .hint-text { font-size: 12px; color: var(--text-muted); margin-top: 12px; padding-left: 16px; }
+    .user-section { margin-bottom: 32px; }
+    .user-section h3 { font-size: 14px; font-weight: 700; margin-bottom: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+    .user-list { max-height: 360px; overflow-y: auto; }
+    .user-item { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px; background: rgba(0,0,0,0.3); border-radius: 10px; margin-bottom: 8px; }
+    .user-info .name { font-weight: 700; font-size: 15px; }
+    .user-info .phone { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+    .user-info .time { font-size: 11px; color: var(--text-muted); opacity: 0.7; }
+    .user-badge { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 5px; margin-left: 10px; }
+    .user-badge.pending { background: rgba(255,215,0,0.15); color: var(--neon-gold); border: 1px solid rgba(255,215,0,0.3); }
+    .user-badge.approved { background: rgba(0,255,242,0.15); color: var(--neon-cyan); border: 1px solid rgba(0,255,242,0.3); }
+    .user-actions { display: flex; gap: 8px; }
+    .empty-state { text-align: center; padding: 48px 24px; color: var(--text-muted); }
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+    .share-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
+    .qr-card { padding: 32px; text-align: center; }
+    .qr-card h3 { margin-bottom: 20px; }
+    .qr-wrapper { display: inline-block; padding: 20px; background: #fff; border-radius: 16px; margin-bottom: 20px; }
+    #qrcode { width: 180px; height: 180px; }
+    .share-link-box { display: flex; gap: 10px; max-width: 400px; margin: 0 auto; }
+    .share-link-box input { flex: 1; padding: 12px 14px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; }
+    .cred-card { padding: 32px; }
+    .cred-card h3 { margin-bottom: 20px; }
+    .cred-box { background: linear-gradient(135deg, rgba(0,255,242,0.08), rgba(179,102,255,0.08)); border: 1px solid var(--neon-cyan); border-radius: 14px; padding: 24px; }
+    .cred-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .cred-row:last-child { border-bottom: none; }
+    .cred-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+    .cred-value { font-family: 'Orbitron', monospace; font-size: 18px; font-weight: 700; color: var(--neon-cyan); }
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; padding: 20px; }
+    .modal.show { display: flex; }
+    .modal-content { width: 100%; max-width: 380px; padding: 32px; }
+    .modal-content h2 { font-size: 18px; margin-bottom: 24px; }
+    @media (max-width: 768px) {
+      .logo { font-size: 36px; }
+      .login-card { padding: 28px 24px; }
+      .admin-header { padding: 12px 16px; }
+      .admin-body { padding: 16px; }
+      .stat-value { font-size: 32px; }
+      .control-card { padding: 18px; }
+      .user-item { flex-direction: column; align-items: flex-start; }
+      .user-actions { width: 100%; }
+      .user-actions .btn { flex: 1; }
+      .share-section { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-layer"></div>
+  <div class="bg-grid"></div>
+
+  <div id="login-view" class="view active">
+    <div class="login-container">
+      <div class="logo" id="logo-click">直播</div>
+      <div class="logo-sub">LIVE EXPERIENCE</div>
+      <div class="glass login-card">
+        <h2>进入直播间</h2>
+        <p>请输入手机号验证身份</p>
+        <div class="input-group">
+          <label>手机号码</label>
+          <input type="tel" class="input" id="input-phone" placeholder="请输入11位手机号" maxlength="11">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="submitVerify()">进入直播间</button>
+        <div class="error-msg" id="login-error"></div>
+        <div class="divider"><span>管理员</span></div>
+        <button class="btn btn-outline" style="width:100%" onclick="openAdminModal()">管理员登录</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="stream-view" class="view">
+    <header class="stream-header">
+      <div class="stream-logo">直播</div>
+      <div class="stream-status">
+        <div class="live-badge" id="live-indicator"><span class="live-dot"></span>直播中</div>
+        <div class="viewer-count"><span>在线:</span><span id="viewer-num">0</span></div>
+      </div>
+    </header>
+    <div class="video-area">
+      <div class="video-placeholder"></div>
+      <div id="danmaku-layer"></div>
+      <div class="offline-notice" id="offline-notice">
+        <div class="icon">直播</div>
+        <p>直播未开始</p>
+      </div>
+    </div>
+    <div class="muted-toast" id="muted-toast">弹幕已关闭</div>
+    <div class="danmaku-bar">
+      <input type="text" id="dm-input" placeholder="发一条弹幕吧..." maxlength="50">
+      <button id="dm-send-btn" onclick="sendDanmaku()">发送</button>
+    </div>
+  </div>
+
+  <div id="admin-view" class="view">
+    <header class="admin-header">
+      <h1 class="admin-title">管理后台</h1>
+      <nav class="admin-tabs">
+        <button class="admin-tab active" data-tab="dashboard">概览</button>
+        <button class="admin-tab" data-tab="control">直播控制</button>
+        <button class="admin-tab" data-tab="share">分享推广</button>
+      </nav>
+      <button class="btn btn-outline btn-sm" onclick="adminLogout()">退出登录</button>
+    </header>
+    <main class="admin-body">
+      <section id="dashboard-section" class="admin-section active">
+        <div class="stats-grid">
+          <div class="glass stat-card"><div class="stat-value" id="stat-online">0</div><div class="stat-label">在线人数</div></div>
+          <div class="glass stat-card"><div class="stat-value" id="stat-danmaku">0</div><div class="stat-label">弹幕数</div></div>
+        </div>
+        <div class="control-grid">
+          <div class="glass control-card">
+            <h3>直播状态</h3>
+            <div class="toggle-row"><span>开启直播</span><label class="toggle-switch"><input type="checkbox" id="ctrl-stream" checked onchange="toggleStream()"><span class="toggle-slider"></span></label></div>
+          </div>
+          <div class="glass control-card">
+            <h3>弹幕控制</h3>
+            <div class="toggle-row"><span>开启弹幕</span><label class="toggle-switch"><input type="checkbox" id="ctrl-danmaku" checked onchange="toggleDanmaku()"><span class="toggle-slider"></span></label></div>
+          </div>
+        </div>
+      </section>
+      
+      <section id="control-section" class="admin-section">
+        <div class="control-grid">
+          <div class="glass control-card">
+            <h3>直播开关</h3>
+            <div class="toggle-row"><span>开启直播</span><label class="toggle-switch"><input type="checkbox" id="ctrl-stream2" checked onchange="toggleStream()"><span class="toggle-slider"></span></label></div>
+            <p class="hint-text">关闭后显示"直播未开始"</p>
+          </div>
+          <div class="glass control-card">
+            <h3>弹幕开关</h3>
+            <div class="toggle-row"><span>允许弹幕</span><label class="toggle-switch"><input type="checkbox" id="ctrl-danmaku2" checked onchange="toggleDanmaku()"><span class="toggle-slider"></span></label></div>
+            <p class="hint-text">关闭后禁止用户发送弹幕</p>
+          </div>
+          <div class="glass control-card">
+            <h3>全局禁言</h3>
+            <div class="toggle-row"><span>全员禁言</span><label class="toggle-switch"><input type="checkbox" id="ctrl-mute" onchange="toggleMute()"><span class="toggle-slider"></span></label></div>
+            <p class="hint-text">开启后所有弹幕将被屏蔽</p>
+          </div>
+        </div>
+      </section>
+      
+      <section id="share-section" class="admin-section">
+        <div class="share-section">
+          <div class="glass qr-card">
+            <h3>扫码进入直播间</h3>
+            <div class="qr-wrapper"><div id="qrcode"></div></div>
+            <div class="share-link-box">
+              <input type="text" id="share-url" readonly>
+              <button class="btn btn-primary btn-sm" onclick="copyShareLink()">复制链接</button>
+            </div>
+          </div>
+          <div class="glass cred-card">
+            <h3>管理员账号</h3>
+            <div class="cred-box">
+              <div class="cred-row"><span class="cred-label">用户名</span><span class="cred-value">admin</span></div>
+              <div class="cred-row"><span class="cred-label">密码</span><span class="cred-value">live2026</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal" id="admin-modal">
+    <div class="glass modal-content">
+      <h2>管理员登录</h2>
+      <div class="input-group">
+        <label>用户名</label>
+        <input type="text" class="input" id="admin-user" placeholder="admin">
+      </div>
+      <div class="input-group">
+        <label>密码</label>
+        <input type="password" class="input" id="admin-pass" placeholder="live2026">
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="adminLogin()">登录</button>
+      <div class="error-msg" id="admin-error"></div>
+      <button class="btn btn-outline" style="width:100%;margin-top:12px" onclick="closeAdminModal()">取消</button>
+    </div>
+  </div>
+
+  <script>
+    var ADMIN_USER = 'admin';
+    var ADMIN_PASS = 'live2026';
+    
+    // ========== 白名单（在这里添加允许进入的手机号）==========
+    var WHITELIST = [
+      '19385296495',
+      // 在这里继续添加更多手机号...
+    ];
+    // ============================================================
+    
+    var state = { streamOn: true, danmakuOn: true, muteAll: false, danmakuCount: 0, currentUser: null, isAdmin: false };
+    
+    function init() {
+        var clicks = 0;
+        var timer = null;
+        document.getElementById('logo-click').addEventListener('click', function() {
+          clicks++;
+          clearTimeout(timer);
+          timer = setTimeout(function() { clicks = 0; }, 1500);
+          if (clicks >= 5) { clicks = 0; openAdminModal(); }
+        });
+        
+        var tabs = document.querySelectorAll('.admin-tab');
+        for (var i = 0; i < tabs.length; i++) {
+          tabs[i].addEventListener('click', function() {
+            var allTabs = document.querySelectorAll('.admin-tab');
+            var allSections = document.querySelectorAll('.admin-section');
+            for (var j = 0; j < allTabs.length; j++) {
+              allTabs[j].classList.remove('active');
+              allSections[j].classList.remove('active');
+            }
+            this.classList.add('active');
+            document.getElementById(this.getAttribute('data-tab') + '-section').classList.add('active');
+          });
+        }
+        
+        checkLoginStatus();
+        generateQRCode();
+      });
+    }
+    
+    function checkLoginStatus() {
+      var admin = localStorage.getItem('ls_admin');
+      
+      if (admin === '1') { 
+        state.isAdmin = true; 
+        showView('admin-view'); 
+        updateAdminUI(); 
+        return; 
+      }
+      
+      var saved = localStorage.getItem('ls_user');
+      if (saved) {
+        try {
+          state.currentUser = JSON.parse(saved);
+          showView('stream-view');
+          startDanmakuSimulation();
+          return;
+        } catch(e) {
+          localStorage.removeItem('ls_user');
+        }
+      }
+      
+      showView('login-view');
+    }
+    
+    function showView(id) {
+      var views = document.querySelectorAll('.view');
+      for (var i = 0; i < views.length; i++) { views[i].classList.remove('active'); }
+      document.getElementById(id).classList.add('active');
+    }
+    
+    function submitVerify() {
+      var phone = document.getElementById('input-phone').value.trim();
+      var err = document.getElementById('login-error');
+      
+      if (!/^1[3-9]\d{9}$/.test(phone)) { err.textContent = '手机号格式不正确'; return; }
+      
+      // 检查白名单
+      var allowed = WHITELIST.indexOf(phone) !== -1;
+      if (!allowed) {
+        err.textContent = '您的手机号不在白名单中，无法进入直播间';
+        return;
+      }
+      
+      // 通过验证，进入直播间
+      var user = { phone: phone, time: new Date().toLocaleString() };
+      localStorage.setItem('ls_user', JSON.stringify(user));
+      state.currentUser = user;
+      err.textContent = '';
+      showView('stream-view');
+      startDanmakuSimulation();
+    }
+    
+    function openAdminModal() {
+      document.getElementById('admin-modal').classList.add('show');
+      document.getElementById('admin-error').textContent = '';
+    }
+    
+    function closeAdminModal() {
+      document.getElementById('admin-modal').classList.remove('show');
+    }
+    
+    function adminLogin() {
+      var user = document.getElementById('admin-user').value.trim();
+      var pass = document.getElementById('admin-pass').value.trim();
+      var err = document.getElementById('admin-error');
+      if (user === ADMIN_USER && pass === ADMIN_PASS) {
+        localStorage.setItem('ls_admin', '1');
+        state.isAdmin = true;
+        closeAdminModal();
+        showView('admin-view');
+        updateAdminUI();
+      } else {
+        err.textContent = '用户名或密码错误';
+      }
+    }
+    
+    function adminLogout() {
+      localStorage.removeItem('ls_admin');
+      state.isAdmin = false;
+      showView('login-view');
+    }
+    
+    function updateAdminUI() {
+      document.getElementById('stat-online').textContent = Math.floor(Math.random() * 100 + 50);
+      document.getElementById('stat-danmaku').textContent = state.danmakuCount;
+    }
+    
+    function toggleStream() {
+      state.streamOn = !state.streamOn;
+      var notice = document.getElementById('offline-notice');
+      var indicator = document.getElementById('live-indicator');
+      if (state.streamOn) {
+        notice.classList.remove('show');
+        indicator.style.display = 'flex';
+      } else {
+        notice.classList.add('show');
+        indicator.style.display = 'none';
+      }
+    }
+    
+    function toggleDanmaku() {
+      state.danmakuOn = !state.danmakuOn;
+      updateDanmakuInput();
+    }
+    
+    function toggleMute() {
+      state.muteAll = !state.muteAll;
+      updateDanmakuInput();
+    }
+    
+    function updateDanmakuInput() {
+      var input = document.getElementById('dm-input');
+      var btn = document.getElementById('dm-send-btn');
+      var disabled = !state.danmakuOn || state.muteAll;
+      input.disabled = disabled;
+      btn.disabled = disabled;
+      if (disabled) {
+        var toast = document.getElementById('muted-toast');
+        toast.classList.add('show');
+        setTimeout(function() { toast.classList.remove('show'); }, 2000);
+      }
+    }
+    
+    function sendDanmaku() {
+      var input = document.getElementById('dm-input');
+      var text = input.value.trim();
+      if (!text) return;
+      if (!state.danmakuOn || state.muteAll) {
+        var toast = document.getElementById('muted-toast');
+        toast.classList.add('show');
+        setTimeout(function() { toast.classList.remove('show'); }, 2000);
+        return;
+      }
+      createDanmaku(text, true);
+      input.value = '';
+      state.danmakuCount++;
+    }
+    
+    function createDanmaku(text, isUser) {
+      var layer = document.getElementById('danmaku-layer');
+      var el = document.createElement('div');
+      el.className = 'danmaku-item';
+      el.textContent = text;
+      el.style.top = (Math.random() * 70 + 10) + '%';
+      el.style.color = isUser ? '#00fff2' : ['#fff', '#ffd700', '#ff6b6b', '#a855f7'][Math.floor(Math.random() * 4)];
+      el.style.animationDuration = (5 + Math.random() * 5) + 's';
+      layer.appendChild(el);
+      el.addEventListener('animationend', function() { el.remove(); });
+    }
+    
+    function startDanmakuSimulation() {
+      var msgs = ['666', '好棒', '赞', '来了', '哈哈', '厉害', '加油', '顶', '哈哈', '牛'];
+      setInterval(function() {
+        if (state.streamOn && Math.random() > 0.6) { createDanmaku(msgs[Math.floor(Math.random() * msgs.length)], false); }
+      }, 2000);
+      setInterval(function() { document.getElementById('viewer-num').textContent = Math.floor(Math.random() * 100 + 50); }, 5000);
+    }
+    
+    function generateQRCode() {
+      var url = window.location.href.split('#')[0];
+      document.getElementById('share-url').value = url;
+      new QRCode(document.getElementById('qrcode'), { text: url, width: 180, height: 180, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M });
+    }
+    
+    function copyShareLink() {
+      var input = document.getElementById('share-url');
+      input.select();
+      document.execCommand('copy');
+      var btn = document.querySelector('.share-link-box .btn');
+      var old = btn.textContent;
+      btn.textContent = '已复制!';
+      setTimeout(function() { btn.textContent = old; }, 1500);
+    }
+    
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && document.activeElement.id === 'dm-input') { sendDanmaku(); }
+      if (e.key === 'Escape') { closeAdminModal(); }
+    });
+    
+    init();
+  </script>
+</body>
+</html>
